@@ -14,8 +14,9 @@ const io = socketIo(server, {
 let users = [];
 
 const addUser = (user, socketId) => {
-  !users.some((myUser) => myUser?.user?.id === user?.id) &&
+  if (!users.some((myUser) => myUser?.user?.id === user?.id)) {
     users.push({ user, socketId });
+  }
 };
 
 const removeUser = (socketId) => {
@@ -27,71 +28,74 @@ const getUser = (userId) => {
 };
 
 io.on("connection", (socket) => {
-  // take user Id and socket Id from user
+  // Add user
+  console.log("User Connected");
   socket.on("addUser", (user) => {
-    addUser(user, socket?.id);
+    addUser(user, socket.id);
     io.emit("getUsers", users);
   });
 
-  //   disconnection
+  // Handle disconnection
   socket.on("disconnect", () => {
-    removeUser(socket?.id);
+    removeUser(socket.id);
     io.emit("getUsers", users);
   });
 
-  //   send AND get message
+  // Handle sending and receiving messages
   socket.on(
     "sendMessage",
     ({ senderId, receiverId, text, createdAt, image }) => {
       const user = getUser(receiverId);
-
-      user &&
+      if (user) {
         io.to(user.socketId).emit("getMessage", {
           senderId,
           text,
           createdAt,
           image,
         });
+      }
     }
   );
-  //   send AND get notification
+
+  // Handle sending and receiving notifications
   socket.on("sendMessageNotification", ({ receiverId, type, createdAt }) => {
     const user = getUser(receiverId);
-    user &&
+    if (user) {
       io.to(user.socketId).emit("getMessageNotification", {
         receiverId,
         type,
         createdAt,
       });
-  });
-  //   send AND get notification
-  socket.on("sendStoreApprovalRequest", ({ user, type, createdAt }) => {
-    io.emit("getStoreApprovalRequest", {
-      user,
-      type,
-      createdAt,
-    });
+    }
   });
 
-  //   send AND get notification
+  // Handle store approval requests
+  socket.on("sendStoreApprovalRequest", ({ user, type, createdAt }) => {
+    io.emit("getStoreApprovalRequest", { user, type, createdAt });
+  });
+
+  // Handle store approval notifications
   socket.on("sendStoreApproved", ({ seller, type, createdAt }) => {
     const user = getUser(seller);
-    user &&
+    if (user) {
       io.to(user.socketId).emit("getStoreApproved", {
         seller,
         type,
         createdAt,
       });
+    }
   });
 
-  //   send AND get notification
+  // Handle order status notifications
   socket.on("sendOrderStatus", ({ buyer, type, createdAt }) => {
     const user = getUser(buyer);
-    user &&
-      io.to(user.socketId).emit("getOrderStatus", {
-        buyer,
-        type,
-        createdAt,
-      });
+    if (user) {
+      io.to(user.socketId).emit("getOrderStatus", { buyer, type, createdAt });
+    }
   });
+});
+
+const PORT = process.env.PORT || 8900;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
